@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   X,
   Filter,
+  Home,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -77,29 +78,68 @@ export const DashboardBuilder: React.FC = () => {
   const [enableZoomSlider, setEnableZoomSlider] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  // BROWSER & MOBILE BACK BUTTON SUPPORT FIX
+  // STEP-BY-STEP HISTORY SUPPORT (Fixes total site exit on back button)
   useEffect(() => {
-    if (isFullscreen) {
-      window.history.pushState({ modalOpen: true }, "");
-
-      const handlePopState = () => {
+    const handlePopState = (event: PopStateEvent) => {
+      // Step 1: If Fullscreen Modal is active, close only fullscreen
+      if (isFullscreen) {
         setIsFullscreen(false);
-      };
+        return;
+      }
+      // Step 2: If Dataset is loaded, reset to blank Home view
+      if (dataset.length > 0) {
+        setDataset([]);
+        setFileName("");
+        setXAxis("");
+        setYAxis("");
+      }
+    };
 
-      window.addEventListener("popstate", handlePopState);
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isFullscreen, dataset.length]);
 
-      return () => {
-        window.removeEventListener("popstate", handlePopState);
-      };
-    }
-  }, [isFullscreen]);
+  // Open Fullscreen Modal with Browser History Stack Entry
+  const openFullscreenMode = () => {
+    window.history.pushState({ view: "fullscreen" }, "");
+    setIsFullscreen(true);
+  };
 
-  const closeFullscreen = () => {
-    if (window.history.state?.modalOpen) {
+  // Close Fullscreen (Goes 1 step back in history)
+  const closeFullscreenMode = () => {
+    setIsFullscreen(false);
+    if (window.history.state?.view === "fullscreen") {
       window.history.back();
-    } else {
-      setIsFullscreen(false);
     }
+  };
+
+  // ONE STEP BACK BUTTON HANDLER
+  const handleStepBack = () => {
+    if (isFullscreen) {
+      closeFullscreenMode();
+    } else if (dataset.length > 0) {
+      // Reset dataset & configurations to initial step
+      setDataset([]);
+      setFileName("");
+      setXAxis("");
+      setYAxis("");
+    } else {
+      // Go back in browser if already on home step
+      window.history.back();
+    }
+  };
+
+  // GUARANTEED WORKING HOME BUTTON HANDLER
+  const handleGoHome = () => {
+    setIsFullscreen(false);
+    setDataset([]);
+    setFileName("");
+    setXAxis("");
+    setYAxis("");
+    // Redirect to home root URL seamlessly
+    window.location.href = "/";
   };
 
   // File Upload Handler
@@ -111,6 +151,8 @@ export const DashboardBuilder: React.FC = () => {
     const fileExt = file.name.split(".").pop()?.toLowerCase();
 
     const processData = (parsedData: DatasetRow[]) => {
+      // Add history entry so browser back button steps back smoothly
+      window.history.pushState({ view: "dataset" }, "");
       setDataset(parsedData);
       setXAxis("");
       setYAxis("");
@@ -138,7 +180,7 @@ export const DashboardBuilder: React.FC = () => {
 
   const columns = useMemo(() => (dataset.length > 0 ? Object.keys(dataset[0]) : []), [dataset]);
 
-  // Clean and Aggregate Chart Data
+  // Aggregated Data Calculation
   const chartData = useMemo(() => {
     if (!dataset.length || !xAxis || !yAxis) return [];
 
@@ -207,7 +249,7 @@ export const DashboardBuilder: React.FC = () => {
     return null;
   };
 
-  // Chart Rendering Engine
+  // Render Master Chart Function
   const renderMasterChart = (inFullscreen = false) => {
     if (!chartData.length) return null;
 
@@ -287,6 +329,35 @@ export const DashboardBuilder: React.FC = () => {
 
   return (
     <div className="space-y-6 text-slate-200">
+      {/* GLOBAL WORKING NAVIGATION HEADER */}
+      <div className="flex items-center justify-between bg-slate-900/90 p-3 rounded-2xl border border-white/10 backdrop-blur-md shadow-lg sticky top-2 z-40">
+        <div className="flex items-center space-x-3">
+          <button
+            type="button"
+            onClick={handleStepBack}
+            className="flex items-center space-x-2 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-xl text-xs font-semibold transition-all border border-white/10 active:scale-95 cursor-pointer shadow-md"
+            title="Go 1 Step Back"
+          >
+            <ArrowLeft className="w-4 h-4 text-purple-400" />
+            <span>Back</span>
+          </button>
+
+          <span className="text-xs text-slate-400 font-medium hidden sm:inline-block">
+            {fileName ? `File: ${fileName}` : "DataCode Studio"}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoHome}
+          className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white border border-purple-400/30 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-md shadow-purple-600/20"
+          title="Go to Home Page"
+        >
+          <Home className="w-4 h-4" />
+          <span>Home</span>
+        </button>
+      </div>
+
       {/* File Upload Banner */}
       <div className="border-2 border-dashed border-white/20 hover:border-purple-500/50 transition-all rounded-2xl p-6 text-center bg-slate-900/40 backdrop-blur-md relative group">
         <input
@@ -301,10 +372,10 @@ export const DashboardBuilder: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white">
-              {fileName ? `Active Dataset: ${fileName}` : "Upload Dataset File (.csv / .xlsx)"}
+              {fileName ? `Active File: ${fileName}` : "Upload Dataset File (.csv / .xlsx)"}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Upload file and select your desired X and Y Axis to visualize
+              Click or drag file here to change dataset
             </p>
           </div>
         </div>
@@ -318,39 +389,39 @@ export const DashboardBuilder: React.FC = () => {
           <div className="max-w-md">
             <h3 className="text-base font-semibold text-white">No Dataset Loaded</h3>
             <p className="text-xs text-slate-400 mt-1">
-              File upload karein aur apne pasand ke columns select karke chart dekhein.
+              CSV ya Excel file upload karein aur custom charts generate karein.
             </p>
           </div>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Master Control Panel */}
+          {/* Controls Bar */}
           <div className="glass-card rounded-2xl border border-white/10 bg-slate-950/90 p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
               <div className="flex items-center space-x-2">
                 <BarChart3 className="w-5 h-5 text-purple-400" />
-                <h2 className="text-base font-bold text-white">Master Analytics Studio</h2>
+                <h2 className="text-base font-bold text-white">Analytics Studio</h2>
                 <span className="text-xs text-slate-500 font-mono">
-                  ({dataset.length} total rows)
+                  ({dataset.length} rows)
                 </span>
               </div>
 
               {xAxis && yAxis && (
                 <button
                   type="button"
-                  onClick={() => setIsFullscreen(true)}
+                  onClick={openFullscreenMode}
                   className="flex items-center space-x-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold transition-all shadow-lg shadow-purple-600/20 cursor-pointer"
                 >
                   <Maximize2 className="w-4 h-4" />
-                  <span>Full Screen Chart</span>
+                  <span>Full Screen View</span>
                 </button>
               )}
             </div>
 
-            {/* Customization Options Row */}
+            {/* Config Selectors */}
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-slate-900/80 p-3.5 rounded-xl border border-white/5 text-xs">
               <div>
-                <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-1">X-Axis (Category)</label>
+                <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-1">X-Axis</label>
                 <select
                   value={xAxis}
                   onChange={(e) => setXAxis(e.target.value)}
@@ -364,7 +435,7 @@ export const DashboardBuilder: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-1">Y-Axis (Value)</label>
+                <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-1">Y-Axis</label>
                 <select
                   value={yAxis}
                   onChange={(e) => setYAxis(e.target.value)}
@@ -407,7 +478,7 @@ export const DashboardBuilder: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-1">Theme Color</label>
+                <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-1">Color Palette</label>
                 <select
                   value={colorTheme}
                   onChange={(e) => setColorTheme(e.target.value)}
@@ -469,12 +540,12 @@ export const DashboardBuilder: React.FC = () => {
               </div>
             </div>
 
-            {/* MAIN CHART CONTAINER */}
+            {/* Main Visualizer Area */}
             <div className="w-full h-[500px] bg-slate-950/60 p-4 rounded-2xl border border-white/5 relative flex items-center justify-center">
               {!xAxis || !yAxis ? (
                 <div className="text-center space-y-2 text-slate-500">
                   <Filter className="w-8 h-8 mx-auto stroke-1" />
-                  <p className="text-sm font-medium">Please select X-Axis and Y-Axis columns above to generate chart</p>
+                  <p className="text-sm font-medium">Select X and Y Axis columns above to build chart</p>
                 </div>
               ) : (
                 renderMasterChart()
@@ -484,18 +555,18 @@ export const DashboardBuilder: React.FC = () => {
         </div>
       )}
 
-      {/* FULLSCREEN MODAL OVERLAY WITH BROWSER BACK BUTTON SUPPORT */}
+      {/* FULLSCREEN MODAL */}
       {isFullscreen && (
         <div className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-3xl p-6 flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center space-x-4">
               <button
                 type="button"
-                onClick={closeFullscreen}
+                onClick={closeFullscreenMode}
                 className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-purple-600/30"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Studio</span>
+                <span>Back to Dashboard</span>
               </button>
 
               <div>
@@ -503,17 +574,13 @@ export const DashboardBuilder: React.FC = () => {
                   <BarChart3 className="w-5 h-5 text-purple-400" />
                   <span>{yAxis} by {xAxis} ({aggregation.toUpperCase()})</span>
                 </h2>
-                <p className="text-xs text-slate-400">
-                  Full-screen interactive view ({chartData.length} items aggregated)
-                </p>
               </div>
             </div>
 
             <button
               type="button"
-              onClick={closeFullscreen}
+              onClick={closeFullscreenMode}
               className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/10 rounded-xl transition-all cursor-pointer"
-              title="Close Fullscreen"
             >
               <X className="w-5 h-5" />
             </button>
