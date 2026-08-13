@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import {
@@ -77,6 +77,31 @@ export const DashboardBuilder: React.FC = () => {
   const [enableZoomSlider, setEnableZoomSlider] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
+  // BROWSER & MOBILE BACK BUTTON SUPPORT FIX
+  useEffect(() => {
+    if (isFullscreen) {
+      window.history.pushState({ modalOpen: true }, "");
+
+      const handlePopState = () => {
+        setIsFullscreen(false);
+      };
+
+      window.addEventListener("popstate", handlePopState);
+
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+      };
+    }
+  }, [isFullscreen]);
+
+  const closeFullscreen = () => {
+    if (window.history.state?.modalOpen) {
+      window.history.back();
+    } else {
+      setIsFullscreen(false);
+    }
+  };
+
   // File Upload Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,7 +147,7 @@ export const DashboardBuilder: React.FC = () => {
     dataset.forEach((row) => {
       const rawX = row[xAxis];
       const xVal = rawX !== null && rawX !== undefined ? String(rawX).trim() : "N/A";
-      
+
       let rawY = row[yAxis];
       if (typeof rawY === "string") {
         rawY = parseFloat(rawY.replace(/[^0-9.-]+/g, ""));
@@ -155,7 +180,6 @@ export const DashboardBuilder: React.FC = () => {
       };
     });
 
-    // Limit Pie Chart slices to top 15 for clean view
     if (chartType === "pie") {
       return result.sort((a, b) => b.value - a.value).slice(0, 15);
     }
@@ -460,14 +484,14 @@ export const DashboardBuilder: React.FC = () => {
         </div>
       )}
 
-      {/* FULLSCREEN MODAL OVERLAY WITH GUARANTEED HIGH Z-INDEX BACK BUTTON */}
+      {/* FULLSCREEN MODAL OVERLAY WITH BROWSER BACK BUTTON SUPPORT */}
       {isFullscreen && (
         <div className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-3xl p-6 flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center space-x-4">
               <button
                 type="button"
-                onClick={() => setIsFullscreen(false)}
+                onClick={closeFullscreen}
                 className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg shadow-purple-600/30"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -487,7 +511,7 @@ export const DashboardBuilder: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setIsFullscreen(false)}
+              onClick={closeFullscreen}
               className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/10 rounded-xl transition-all cursor-pointer"
               title="Close Fullscreen"
             >
