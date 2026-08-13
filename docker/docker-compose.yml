@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  # C++ Execution Sandbox
+  cpp-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpp
+    container_name: datacode-cpp-sandbox
+    read_only: true
+    tmpfs:
+      - /tmp:exec,mode=1777,size=64M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+
+  # Java Execution Sandbox
+  java-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.java
+    container_name: datacode-java-sandbox
+    read_only: true
+    tmpfs:
+      - /tmp:exec,mode=1777,size=128M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+
+  # Go Execution Sandbox
+  go-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.go
+    container_name: datacode-go-sandbox
+    read_only: true
+    tmpfs:
+      - /tmp:exec,mode=1777,size=128M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true

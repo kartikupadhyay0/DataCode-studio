@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataCode Studio — Premium Workbench Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0f19;
+      color: #f3f4f6;
+      overflow-x: hidden;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .glow-effect {
+      box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.3), 0 0 10px -6px rgba(139, 92, 246, 0.3);
+    }
+    .tab-active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+      border-bottom: 2px solid #3b82f6;
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-purple-500 selection:text-white">
+
+  <!-- 8D Canvas Background -->
+  <div id="canvas-container" class="opacity-100"></div>
+
+  <!-- Header / Glassmorphic Navbar -->
+  <header class="relative z-10 sticky top-0 px-6 py-4 glass-panel border-b border-white/10 flex items-center justify-between">
+    <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('home')">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-500/30">
+        DCS
+      </div>
+      <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+        DataCode Studio
+      </span>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-900/60 p-1 rounded-xl border border-white/5">
+      <button id="nav-home" onclick="switchTab('home')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 tab-active">Home</button>
+      <button id="nav-compiler" onclick="switchTab('compiler')" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all">Compiler</button>
+      <button id="nav-data" onclick="switchTab('data')" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all">Data Filter</button>
+      <button id="nav-dashboard" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all">Dashboard</button>
+    </nav>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="relative z-10 flex-grow container mx-auto px-4 py-6">
+
+    <!-- HOME VIEW -->
+    <section id="view-home" class="space-y-12 py-12">
+      <div class="text-center max-w-3xl mx-auto space-y-6">
+        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full glass-panel text-xs font-semibold text-purple-400 border border-purple-500/20">
+          <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+          <span>100% Free • WebAssembly Driven • Privacy First</span>
+        </div>
+        <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
+          Next-Gen Browser Data & Code <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">Workbench</span>
+        </h1>
+        <p class="text-lg text-slate-400 leading-relaxed">
+          Execute multi-language code locally, analyze massive CSV datasets visually without writing SQL, and construct interactive dashboards directly in your browser.
+        </p>
+        <div class="flex flex-wrap justify-center gap-4 pt-4">
+          <button onclick="switchTab('compiler')" class="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:opacity-90 transition-all glow-effect">
+            Open Code Compiler
+          </button>
+          <button onclick="switchTab('data')" class="px-6 py-3 rounded-xl glass-panel text-white font-medium hover:bg-white/10 transition-all border border-white/15">
+            Explore Smart Data Filter
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPILER VIEW -->
+    <section id="view-compiler" class="hidden space-y-4">
+      <div class="flex items-center justify-between glass-panel p-4 rounded-xl">
+        <div class="flex items-center space-x-4">
+          <label class="text-sm font-medium text-slate-400">Language:</label>
+          <select id="lang-select" onchange="changeLanguage()" class="bg-slate-900 text-white px-3 py-1.5 rounded-lg border border-white/10 text-sm focus:outline-none focus:border-blue-500">
+            <option value="javascript">JavaScript (Browser WASM/JS)</option>
+            <option value="python">Python (Pyodide Local)</option>
+            <option value="cpp">C++ (Local Docker Handler)</option>
+            <option value="java">Java (Local Docker Handler)</option>
+            <option value="go">Go (Local Docker Handler)</option>
+          </select>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="clearConsole()" class="px-3 py-1.5 text-xs text-slate-400 hover:text-white glass-panel rounded-lg">Clear Output</button>
+          <button onclick="runCode()" class="px-5 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-all">▶ Run Code</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[550px]">
+        <!-- Code Input -->
+        <div class="glass-panel rounded-xl flex flex-col overflow-hidden">
+          <div class="bg-slate-900/80 px-4 py-2 border-b border-white/10 text-xs font-mono text-slate-400">
+            main.js
+          </div>
+          <textarea id="code-input" class="w-full flex-grow bg-slate-950/80 p-4 font-mono text-sm text-green-400 focus:outline-none resize-none" spellcheck="false">// DataCode Studio — Local Code Engine
+console.log("Initializing DataCode Studio Workspace...");
+const dataset = [12, 45, 67, 89, 23, 56];
+const average = dataset.reduce((a, b) => a + b, 0) / dataset.length;
+console.log(`Computed Mean: ${average.toFixed(2)}`);
+</textarea>
+        </div>
+
+        <!-- Terminal Output -->
+        <div class="glass-panel rounded-xl flex flex-col overflow-hidden bg-slate-950/90">
+          <div class="bg-slate-900/80 px-4 py-2 border-b border-white/10 text-xs font-mono text-slate-400 flex justify-between">
+            <span>Terminal Output</span>
+            <span id="exec-status" class="text-blue-400">Ready</span>
+          </div>
+          <pre id="terminal-output" class="w-full flex-grow p-4 font-mono text-xs text-slate-300 overflow-y-auto whitespace-pre-wrap">[System initialized] Waiting for code execution command...</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- DATA FILTER VIEW -->
+    <section id="view-data" class="hidden space-y-6">
+      <div class="glass-panel p-6 rounded-xl border border-dashed border-white/20 text-center cursor-pointer hover:border-purple-500 transition-all" onclick="document.getElementById('csv-file').click()">
+        <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleFileUpload(event)">
+        <p class="text-sm font-semibold text-white">Click or Drag & Drop CSV / XLSX Datasets</p>
+        <p class="text-xs text-slate-400 mt-1">Processed 100% locally in-browser via DuckDB-Wasm & PapaParse</p>
+      </div>
+
+      <!-- Smart Suggestions -->
+      <div id="suggestions-panel" class="glass-panel p-4 rounded-xl space-y-2">
+        <span class="text-xs font-semibold text-purple-400 uppercase tracking-wider">Smart Rule-Based Analysis:</span>
+        <div id="suggestion-chips" class="flex flex-wrap gap-2">
+          <span class="text-xs text-slate-400 italic">Upload a CSV to generate instant no-code transformation rules.</span>
+        </div>
+      </div>
+
+      <!-- Table Preview -->
+      <div class="glass-panel rounded-xl overflow-hidden">
+        <div class="p-3 bg-slate-900/80 border-b border-white/10 flex justify-between items-center text-xs text-slate-400">
+          <span id="dataset-info">Dataset Preview</span>
+          <span id="row-count">0 Rows Loaded</span>
+        </div>
+        <div class="overflow-x-auto max-h-80">
+          <table id="data-table" class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900 text-slate-200 border-b border-white/10 sticky top-0">
+              <tr><th class="p-3">No Data Loaded</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD VIEW -->
+    <section id="view-dashboard" class="hidden space-y-6">
+      <div class="flex justify-between items-center glass-panel p-4 rounded-xl">
+        <h2 class="text-lg font-bold text-white">Interactive Visual Dashboard</h2>
+        <button onclick="renderCharts()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-xs font-semibold rounded-lg transition-all">Re-render Analytics</button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass-panel p-4 rounded-xl h-80 flex flex-col">
+          <h3 class="text-xs font-semibold text-slate-400 mb-2">Metrics Distribution (Bar)</h3>
+          <div id="chart-bar" class="w-full flex-grow"></div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl h-80 flex flex-col">
+          <h3 class="text-xs font-semibold text-slate-400 mb-2">Trend Analysis (Line)</h3>
+          <div id="chart-line" class="w-full flex-grow"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Mandatory Footer -->
+  <footer class="relative z-10 glass-panel border-t border-white/10 py-4 px-6 text-center text-xs text-slate-400">
+    <p>Designed & Developed with ❤️ by Kartik Upadhyay</p>
+    <p class="mt-1">© 2026 Kartik Upadhyay. All Rights Reserved.</p>
+  </footer>
+
+  <!-- Single-File Logic -->
+  <script>
+    // 1. Three.js Spatial Background
+    let scene, camera, renderer, particles;
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 400;
+
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      const geometry = new THREE.BufferGeometry();
+      const count = 1200;
+      const positions = new Float32Array(count * 3);
+      for(let i=0; i<count*3; i++) {
+        positions[i] = (Math.random() - 0.5) * 1000;
+      }
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+      const material = new THREE.PointsMaterial({
+        size: 2.5,
+        color: 0x8b5cf6,
+        transparent: true,
+        opacity: 0.8
+      });
+
+      particles = new THREE.Points(geometry, material);
+      scene.add(particles);
+
+      function animate() {
+        requestAnimationFrame(animate);
+        particles.rotation.x += 0.0003;
+        particles.rotation.y += 0.0005;
+        renderer.render(scene, camera);
+      }
+      animate();
+    }
+    window.onload = init3D;
+
+    // 2. Focus Mode Transition
+    function switchTab(tab) {
+      document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('nav button').forEach(el => el.classList.remove('tab-active'));
+      document.getElementById(`view-${tab}`).classList.remove('hidden');
+      document.getElementById(`nav-${tab}`).classList.add('tab-active');
+
+      const canvas = document.getElementById('canvas-container');
+      if(tab === 'home') {
+        canvas.style.opacity = "1.0";
+      } else {
+        canvas.style.opacity = "0.05"; // Focus Mode Target
+      }
+
+      if(tab === 'dashboard') setTimeout(renderCharts, 100);
+    }
+
+    // 3. Compiler Sandbox Logic
+    function runCode() {
+      const lang = document.getElementById('lang-select').value;
+      const code = document.getElementById('code-input').value;
+      const term = document.getElementById('terminal-output');
+      const status = document.getElementById('exec-status');
+
+      status.innerText = "Executing...";
+      term.innerText = "";
+
+      if(lang === 'javascript') {
+        try {
+          let logs = [];
+          const customConsole = { log: (...args) => logs.push(args.join(' ')) };
+          const run = new Function('console', code);
+          run(customConsole);
+          term.innerText = logs.length > 0 ? logs.join('\n') : "Execution finished with no output.";
+          status.innerText = "Success (0ms)";
+        } catch(err) {
+          term.innerText = "Runtime Error: " + err.message;
+          status.innerText = "Failed";
+        }
+      } else {
+        term.innerText = `[Docker Architecture Handler Required]\nLanguage '${lang}' execution routed through local sandboxed docker container.\nConnect local docker execution daemon to complete compilation pipeline.`;
+        status.innerText = "Docker Required";
+      }
+    }
+
+    function clearConsole() {
+      document.getElementById('terminal-output').innerText = "";
+    }
+
+    // 4. Data Upload & Preview
+    function handleFileUpload(evt) {
+      const file = evt.target.files[0];
+      if(!file) return;
+
+      Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        complete: function(results) {
+          renderTable(results.data);
+          generateSuggestions(results.data);
+        }
+      });
+    }
+
+    function renderTable(data) {
+      if(!data || data.length === 0) return;
+      const headers = Object.keys(data[0]);
+      const tableHead = headers.map(h => `<th class="p-3 border-b border-white/10">${h}</th>`).join('');
+      
+      const rows = data.slice(0, 8).map(row => {
+        const cells = headers.map(h => `<td class="p-3 border-b border-white/5">${row[h] ?? ''}</td>`).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+
+      document.querySelector('#data-table thead').innerHTML = `<tr>${tableHead}</tr>`;
+      document.querySelector('#data-table tbody').innerHTML = rows;
+      document.getElementById('row-count').innerText = `${data.length} Total Rows`;
+    }
+
+    function generateSuggestions(data) {
+      if(!data || data.length === 0) return;
+      const headers = Object.keys(data[0]);
+      const chipsContainer = document.getElementById('suggestion-chips');
+      chipsContainer.innerHTML = '';
+
+      headers.forEach(key => {
+        if(typeof data[0][key] === 'number') {
+          chipsContainer.innerHTML += `<button class="px-3 py-1 rounded-full text-xs glass-panel text-blue-400 border border-blue-500/30 hover:bg-blue-500/20">Filter Outliers (${key})</button>`;
+          chipsContainer.innerHTML += `<button class="px-3 py-1 rounded-full text-xs glass-panel text-purple-400 border border-purple-500/30 hover:bg-purple-500/20">Show Mean / High Values (${key})</button>`;
+        }
+      });
+    }
+
+    // 5. Dashboard Charts
+    function renderCharts() {
+      const barChart = echarts.init(document.getElementById('chart-bar'), 'dark');
+      barChart.setOption({
+        backgroundColor: 'transparent',
+        xAxis: { type: 'category', data: ['Q1', 'Q2', 'Q3', 'Q4'] },
+        yAxis: { type: 'value' },
+        series: [{ data: [320, 450, 580, 720], type: 'bar', itemStyle: { color: '#8b5cf6' } }]
+      });
+
+      const lineChart = echarts.init(document.getElementById('chart-line'), 'dark');
+      lineChart.setOption({
+        backgroundColor: 'transparent',
+        xAxis: { type: 'category', data: ['Jan', 'Feb', 'Mar', 'Apr', 'May'] },
+        yAxis: { type: 'value' },
+        series: [{ data: [15, 22, 48, 35, 78], type: 'line', smooth: true, itemStyle: { color: '#3b82f6' } }]
+      });
+    }
+  </script>
+</body>
+</html>
